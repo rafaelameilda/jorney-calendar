@@ -31,8 +31,6 @@
           :day-height="0"
           :locale="locale"
           @change="onChange"
-          :month-label-size="'lg'"
-          date-align="right"
           @moved="onMoved"
           @click-date="onClickDate"
           @click-day="onClickDay"
@@ -69,6 +67,21 @@
 </template>
 
 <script setup lang="ts">
+import {
+  QCalendarMonth,
+  /// @ts-expect-error ignore for now
+  PARSE_DATE, // regex for parsing out date
+  addToDate,
+  parseTimestamp,
+  today,
+  isBetweenDates,
+  Timestamp,
+  parseDate,
+} from "@quasar/quasar-ui-qcalendar";
+import "@quasar/quasar-ui-qcalendar/index.css";
+import { ref, reactive, computed } from "vue";
+import Holidays from "date-holidays";
+
 interface Holiday {
   date: string;
   start: Date;
@@ -91,46 +104,38 @@ interface Event {
   days?: number;
 }
 
-import {
-  QCalendarMonth,
-  /// @ts-expect-error ignore for now
-  PARSE_DATE, // regex for parsing out date
-  addToDate,
-  parseTimestamp,
-  isBetweenDates,
-  Timestamp,
-} from "@quasar/quasar-ui-qcalendar";
-import "@quasar/quasar-ui-qcalendar/index.css";
-import { ref, reactive, computed } from "vue";
-import Holidays from "date-holidays";
-import { DateTime } from "luxon";
-
 const calendar = ref<QCalendarMonth>();
-const selectedDate = ref(DateTime.now().toISODate()!); // ISO Date format YYYY-MM-DD
+const selectedDate = ref(today());
 const selectedMonth = reactive<Timestamp[]>([]);
+const year = ref(new Date().getFullYear());
 const country = ref("BR"); // start with Brazil
 const countryCodes: Record<string, string> = { BR: "pt-BR" }; // 'Brasil', Portuguese (Brazil)
 const locale = computed(() => countryCodes[country.value]);
 
 const formattedMonth = computed(() => {
-  return locale.value
-    ? DateTime.fromISO(selectedDate.value)
-        .setLocale(locale.value)
-        .toFormat("MMMM yyyy")
-        .replace(/^./, (match) => match.toLocaleUpperCase())
-    : "";
+  const date = new Date(selectedDate.value);
+  const formatter = monthFormatter();
+  return formatter ? formatter.format(date) + " " + date.getFullYear() : "";
 });
+
+const monthFormatter = () => {
+  try {
+    return new Intl.DateTimeFormat(locale?.value, {
+      month: "long",
+      timeZone: "UTC",
+    });
+  } catch {
+    //
+  }
+};
 
 const holidaysMap = computed<Holiday[]>(() => {
   // get previous, current and next year so in dec/jan
   // you can see holidays from different years
-  const holidays = new Holidays(country.value);
-  const currentYear = DateTime.now().year;
-
   return [
-    ...holidays.getHolidays(currentYear - 1),
-    ...holidays.getHolidays(currentYear),
-    ...holidays.getHolidays(currentYear + 1),
+    ...new Holidays(country.value).getHolidays(year.value - 1),
+    ...new Holidays(country.value).getHolidays(year.value),
+    ...new Holidays(country.value).getHolidays(year.value + 1),
   ];
 });
 
@@ -147,9 +152,13 @@ const getColor = (item: { type: string }) => {
   }
 };
 
-const getCurrentDay = (day: number): string => {
-  return DateTime.now().set({ day }).toFormat("yyyy-MM-dd");
-};
+const CURRENT_DAY = new Date();
+function getCurrentDay(day: number) {
+  const newDay = new Date(CURRENT_DAY);
+  newDay.setDate(day);
+  const tm = parseDate(newDay);
+  return tm!.date;
+}
 
 const events = reactive<Event[]>([
   {
@@ -257,7 +266,6 @@ const getHolidays = (): Event[] => {
   return holidaysMap.value
     .filter((item) => {
       const timestamp = parseTimestamp(PARSE_DATE.exec(item.date)![0]);
-
       return isBetweenDates(timestamp!, start!, end!);
     })
     .map((item, index) => ({
@@ -271,7 +279,9 @@ const getHolidays = (): Event[] => {
 };
 
 // Função para obter os eventos normais
-const getEvents = (): Event[] => events;
+const getEvents = (): Event[] => {
+  return events;
+};
 
 const eventsMap = computed<Record<string, Event[]>>(() => {
   const map: Record<string, Event[]> = {};
@@ -313,17 +323,18 @@ const onClickDate = (data: Timestamp) => console.log("onClickDate", data);
 const onClickDay = (data: Timestamp) => console.log("onClickDay", data);
 const onClickHeadDay = (data: Timestamp) => console.log("ClickHeadDay", data);
 const onClickWorkweek = (data: Timestamp) => console.log("onWorkweek", data);
-const onClickHeadWorkweek = (data: Timestamp) => console.log("onHeadWorkweek");
+const onClickHeadWorkweek = (data: Timestamp) =>
+  console.log("headWorkweek", data);
 
-const onChange = (data: {
+function onChange(data: {
   start: Timestamp;
   end: Timestamp;
   days: Timestamp[];
-}) => {
+}) {
   console.info("onChange", data);
   // get year of 1st of the month
   selectedMonth.splice(0, selectedMonth.length, ...data.days);
-};
+}
 </script>
 
 <style lang="scss" scoped>

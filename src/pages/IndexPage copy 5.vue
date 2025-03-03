@@ -31,8 +31,6 @@
           :day-height="0"
           :locale="locale"
           @change="onChange"
-          :month-label-size="'lg'"
-          date-align="right"
           @moved="onMoved"
           @click-date="onClickDate"
           @click-day="onClickDay"
@@ -348,5 +346,9 @@ const onChange = (data: {
   align-items: center;
   height: 100%;
   max-width: 100%;
+}
+
+.q-calendar-month__head--weekday {
+  color: red;
 }
 </style>
