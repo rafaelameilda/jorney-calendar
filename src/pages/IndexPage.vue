@@ -129,19 +129,19 @@ const countryCodes: Record<string, string> = { BR: "pt-BR" }; // 'Brasil', Portu
 const locale = computed(() => countryCodes[country.value]);
 
 const formattedMonth = computed(() => {
-  return locale.value
-    ? DateTime.fromISO(selectedDate.value)
-        .setLocale(locale.value)
-        .toFormat("MMMM yyyy")
-        .replace(/^./, (match) => match.toLocaleUpperCase())
-    : "";
+  if (!locale.value) return "";
+
+  return DateTime.fromISO(selectedDate.value)
+    .setLocale(locale.value)
+    .toFormat("MMMM yyyy")
+    .replace(/^./, (match) => match.toLocaleUpperCase());
 });
 
 const holidaysMap = computed<Holiday[]>(() => {
   // get previous, current and next year so in dec/jan
   // you can see holidays from different years
   const holidays = new Holidays(country.value);
-  const currentYear = DateTime.now().year;
+  const currentYear = DateTime.now().setLocale(locale.value || "pt-BR").year;
 
   return [
     ...holidays.getHolidays(currentYear - 1),
@@ -163,24 +163,51 @@ const getColor = (item: { type: string }) => {
   }
 };
 
-const getCurrentDay = (day: number): string => {
-  return DateTime.now().set({ day }).toFormat("yyyy-MM-dd");
+const parseDate = (dateStr: string): string => {
+  return DateTime.fromFormat(dateStr, "dd/MM/yyyy").toFormat("yyyy-MM-dd");
+};
+
+const WEEKDAY: { [key: number]: string } = {
+  0: "DOMINGO",
+  1: "SEGUNDA",
+  2: "TERCA",
+  3: "QUARTA",
+  4: "QUINTA",
+  5: "SEXTA",
+  6: "SABADO",
+};
+
+const HOURS_VALUE: { [key: string]: number } = {
+  DOMINGO: 14,
+  SABADO: 12,
+  SEGUNDA: 8,
+  TERCA: 8,
+  QUARTA: 8,
+  QUINTA: 8,
+  SEXTA: 8,
+};
+
+const addEvent = (timestamp: Timestamp) => {
+  const weekdayName = WEEKDAY[timestamp.weekday] as string; // Obtém o nome do dia da semana
+  const hours = HOURS_VALUE[weekdayName]; // Obtém as horas com base no dia da semana
+
+  console.log({ date: timestamp.date, hours });
 };
 
 const events = reactive<Event[]>([
   {
     id: 1,
-    title: "Rafael Almeida",
+    title: "Rafael Almeida 1",
     details: "Esta de plantão na rota XYZ",
-    date: getCurrentDay(1),
+    date: parseDate("03/03/2025"),
     bgColor: "orange",
     icon: "bookmark",
   },
   {
     id: 2,
-    title: "Rafael Almeida",
+    title: "Rafael Almeida 2",
     details: "Esta de plantão na rota XYZ",
-    date: getCurrentDay(4),
+    date: parseDate("04/03/2025"),
     bgColor: "orange",
     icon: "star",
   },
@@ -188,7 +215,7 @@ const events = reactive<Event[]>([
     id: 3,
     title: "Rafael Almeida",
     details: "Esta de plantão na rota XYZ",
-    date: getCurrentDay(10),
+    date: parseDate("10/03/2025"),
     time: "10:00",
     duration: 120,
     bgColor: "orange",
@@ -198,7 +225,7 @@ const events = reactive<Event[]>([
     id: 4,
     title: "Lunch",
     details: "Company is paying!",
-    date: getCurrentDay(10),
+    date: parseDate("10/03/2025"),
     time: "11:30",
     duration: 90,
     bgColor: "teal",
@@ -208,7 +235,7 @@ const events = reactive<Event[]>([
     id: 5,
     title: "Visit mom",
     details: "Always a nice chat with mom",
-    date: getCurrentDay(20),
+    date: parseDate("20/03/2025"),
     time: "17:00",
     duration: 90,
     bgColor: "grey",
@@ -218,7 +245,7 @@ const events = reactive<Event[]>([
     id: 6,
     title: "Conference",
     details: "Teaching Javascript 101",
-    date: getCurrentDay(22),
+    date: parseDate("22/03/2025"),
     time: "08:00",
     duration: 540,
     bgColor: "blue",
@@ -228,7 +255,7 @@ const events = reactive<Event[]>([
     id: 7,
     title: "Girlfriend",
     details: "Meet GF for dinner at Swanky Restaurant",
-    date: getCurrentDay(4),
+    date: parseDate("04/03/2025"),
     time: "19:00",
     duration: 180,
     bgColor: "teal",
@@ -238,7 +265,7 @@ const events = reactive<Event[]>([
     id: 8,
     title: "Rowing",
     details: "Stay in shape!",
-    date: getCurrentDay(4),
+    date: parseDate("04/03/2025"),
     bgColor: "purple",
     icon: "directions",
     days: 2,
@@ -247,7 +274,7 @@ const events = reactive<Event[]>([
     id: 9,
     title: "Fishing",
     details: "Time for some weekend R&R",
-    date: getCurrentDay(4),
+    date: parseDate("04/03/2025"),
     bgColor: "purple",
     icon: "directions",
     days: 200,
@@ -257,7 +284,7 @@ const events = reactive<Event[]>([
     title: "Vacation - Rafael",
     details:
       "Trails and hikes, going camping! Don't forget to bring bear spray!",
-    date: getCurrentDay(1),
+    date: parseDate("02/03/2025"),
     bgColor: "purple",
     icon: "directions",
     days: 5,
@@ -316,13 +343,6 @@ const eventsMap = computed<Record<string, Event[]>>(() => {
 });
 
 const onToday = () => calendar.value?.moveToToday();
-
-const navigationButton = ref(onToday);
-
-const handleNavigationButton = () => {
-  navigationButton.value();
-};
-
 const onPrev = () => calendar.value?.prev();
 const onNext = () => calendar.value?.next();
 const onMoved = (data: Timestamp) => console.log("onMoved", data);
