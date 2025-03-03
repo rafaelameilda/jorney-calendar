@@ -1,9 +1,29 @@
 <template>
-  <div class="subcontent">
-    <div class="row justify-center">
-      <q-btn label="Hoje" @click="onToday" />
-      <q-btn label="Voltar" @click="onPrev" />
-      <q-btn label="Avançar" @click="onNext" />
+  <q-card>
+    <div class="row justify-center q-pa-sm">
+      <q-btn-group>
+        <q-btn
+          outline
+          label="Voltar"
+          icon="chevron_left"
+          @click="onPrev"
+          color="primary"
+        />
+        <q-btn
+          outline
+          label="Hoje"
+          icon="event"
+          @click="onToday"
+          color="primary"
+        />
+        <q-btn
+          outline
+          label="Avançar"
+          icon-right="chevron_right"
+          @click="onNext"
+          color="primary"
+        />
+      </q-btn-group>
     </div>
 
     <div
@@ -28,11 +48,9 @@
           hoverable
           :focus-type="['day', 'weekday', 'date']"
           :day-min-height="60"
-          :day-height="0"
           :locale="locale"
           @change="onChange"
-          :month-label-size="'lg'"
-          date-align="right"
+          date-align="center"
           @moved="onMoved"
           @click-date="onClickDate"
           @click-day="onClickDay"
@@ -45,27 +63,25 @@
               v-for="event in eventsMap[timestamp.date]"
               :key="event.id"
             >
-              <div
-                :class="badgeClasses(event, 'day')"
-                class="row justify-start items-center no-wrap my-event"
+              <q-chip
+                outline
+                class="my-event"
+                :color="event.bgColor"
+                :icon="event?.icon || 'event'"
               >
-                <q-icon v-if="event?.icon" :name="event.icon" class="q-mr-xs" />
-                <div class="title q-calendar__ellipsis">
+                <div class="q-calendar__ellipsis">
                   {{ event.title + (event.time ? " - " + event.time : "") }}
-                  <q-tooltip>{{
-                    event.details +
-                    ": " +
-                    event.title +
-                    (event.time ? " - " + event.time : "")
-                  }}</q-tooltip>
+                  <q-tooltip
+                    >{{ event.details + ": " + event.title }}
+                  </q-tooltip>
                 </div>
-              </div>
+              </q-chip>
             </template>
           </template>
         </q-calendar-month>
       </div>
     </div>
-  </div>
+  </q-card>
 </template>
 
 <script setup lang="ts">
@@ -158,6 +174,7 @@ const events = reactive<Event[]>([
     details: "Esta de plantão na rota XYZ",
     date: getCurrentDay(1),
     bgColor: "orange",
+    icon: "bookmark",
   },
   {
     id: 2,
@@ -165,7 +182,7 @@ const events = reactive<Event[]>([
     details: "Esta de plantão na rota XYZ",
     date: getCurrentDay(4),
     bgColor: "orange",
-    icon: "fas fa-birthday-cake",
+    icon: "star",
   },
   {
     id: 3,
@@ -175,7 +192,7 @@ const events = reactive<Event[]>([
     time: "10:00",
     duration: 120,
     bgColor: "orange",
-    icon: "fas fa-handshake",
+    icon: "alarm",
   },
   {
     id: 4,
@@ -185,7 +202,7 @@ const events = reactive<Event[]>([
     time: "11:30",
     duration: 90,
     bgColor: "teal",
-    icon: "fas fa-hamburger",
+    icon: "directions",
   },
   {
     id: 5,
@@ -195,7 +212,7 @@ const events = reactive<Event[]>([
     time: "17:00",
     duration: 90,
     bgColor: "grey",
-    icon: "fas fa-car",
+    icon: "directions",
   },
   {
     id: 6,
@@ -205,7 +222,7 @@ const events = reactive<Event[]>([
     time: "08:00",
     duration: 540,
     bgColor: "blue",
-    icon: "fas fa-chalkboard-teacher",
+    icon: "directions",
   },
   {
     id: 7,
@@ -215,7 +232,7 @@ const events = reactive<Event[]>([
     time: "19:00",
     duration: 180,
     bgColor: "teal",
-    icon: "fas fa-utensils",
+    icon: "directions",
   },
   {
     id: 8,
@@ -223,7 +240,7 @@ const events = reactive<Event[]>([
     details: "Stay in shape!",
     date: getCurrentDay(4),
     bgColor: "purple",
-    icon: "rowing",
+    icon: "directions",
     days: 2,
   },
   {
@@ -232,8 +249,8 @@ const events = reactive<Event[]>([
     details: "Time for some weekend R&R",
     date: getCurrentDay(4),
     bgColor: "purple",
-    icon: "fas fa-fish",
-    days: 2,
+    icon: "directions",
+    days: 200,
   },
   {
     id: 10,
@@ -242,7 +259,7 @@ const events = reactive<Event[]>([
       "Trails and hikes, going camping! Don't forget to bring bear spray!",
     date: getCurrentDay(1),
     bgColor: "purple",
-    icon: "fas fa-plane",
+    icon: "directions",
     days: 5,
   },
 ]);
@@ -298,14 +315,14 @@ const eventsMap = computed<Record<string, Event[]>>(() => {
   return map;
 });
 
-const badgeClasses = (event: Event, _type: string) => {
-  return {
-    [`text-white bg-${event.bgColor}`]: true,
-    "rounded-border": true,
-  };
+const onToday = () => calendar.value?.moveToToday();
+
+const navigationButton = ref(onToday);
+
+const handleNavigationButton = () => {
+  navigationButton.value();
 };
 
-const onToday = () => calendar.value?.moveToToday();
 const onPrev = () => calendar.value?.prev();
 const onNext = () => calendar.value?.next();
 const onMoved = (data: Timestamp) => console.log("onMoved", data);
@@ -332,21 +349,11 @@ const onChange = (data: {
   font-size: 12px;
   width: 100%;
   max-width: 100%;
-  margin: 1px 0 0 0;
-  padding: 0 2px;
-  justify-content: start;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
+  margin: 3px 0 0 0;
   cursor: pointer;
 }
 
-.my-event .title {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  max-width: 100%;
+.my-custom-toggle {
+  border: 1px solid #027be3;
 }
 </style>

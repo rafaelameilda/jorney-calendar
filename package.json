@@ -2,7 +2,7 @@
   "name": "journey-calendar",
   "version": "0.0.1",
   "description": "system of control jorney calendar",
-  "productName": "JorneyCalendar",
+  "productName": "Jorney Calendar",
   "author": "rafael almeida <rafaelalmeidalara007@gmail.com>",
   "type": "module",
   "private": true,
