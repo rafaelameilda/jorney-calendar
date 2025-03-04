@@ -26,62 +26,179 @@
       </q-btn-group>
     </div>
 
-    <div
-      style="
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-wrap: nowrap;
-      "
-    >
+    <div style="display: flex; justify-content: center">
       <div class="q-ma-md" style="font-size: 2em">{{ formattedMonth }}</div>
     </div>
 
-    <div class="row justify-center">
-      <div style="display: flex; width: 100%">
-        <q-calendar-month
-          ref="calendar"
-          v-model="selectedDate"
-          animated
-          bordered
-          focusable
-          hoverable
-          :focus-type="['day', 'weekday', 'date']"
-          :day-min-height="60"
-          :locale="locale"
-          @change="onChange"
-          date-align="center"
-          @moved="onMoved"
-          @click-date="onClickDate"
-          @click-day="onClickDay"
-          @click-workweek="onClickWorkweek"
-          @click-head-workweek="onClickHeadWorkweek"
-          @click-head-day="onClickHeadDay"
-        >
-          <template #day="{ scope: { timestamp } }">
-            <template
-              v-for="event in eventsMap[timestamp.date]"
-              :key="event.id"
+    <q-card-section style="display: flex; width: 100%">
+      <q-calendar-month
+        ref="calendar"
+        v-model="selectedDate"
+        animated
+        bordered
+        focusable
+        hoverable
+        :focus-type="['day', 'weekday', 'date']"
+        :day-min-height="60"
+        :locale="locale"
+        @change="onChange"
+        @click-date="onClickDate"
+      >
+        <template #day="{ scope: { timestamp } }">
+          <template v-for="event in eventsMap[timestamp.date]" :key="event.id">
+            <q-chip
+              @click="
+                handleClickEvent({ ...event, weekday: timestamp.weekday })
+              "
+              outline
+              clickable
+              class="my-event"
+              :color="event.bgColor"
+              :icon="event?.icon || 'event'"
             >
-              <q-chip
-                outline
-                class="my-event"
-                :color="event.bgColor"
-                :icon="event?.icon || 'event'"
-              >
-                <div class="q-calendar__ellipsis">
-                  {{ event.title + (event.time ? " - " + event.time : "") }}
-                  <q-tooltip
-                    >{{ event.details + ": " + event.title }}
-                  </q-tooltip>
-                </div>
-              </q-chip>
-            </template>
+              <div class="q-calendar__ellipsis">
+                {{ event.title }}
+                <q-tooltip>{{ event.details + ": " + event.hours }} </q-tooltip>
+              </div>
+            </q-chip>
           </template>
-        </q-calendar-month>
-      </div>
-    </div>
+        </template>
+      </q-calendar-month>
+    </q-card-section>
+
+    <q-separator />
+
+    <q-card-section>
+      <q-table
+        :rows="groupedEventsList"
+        :columns="[
+          { name: 'title', label: 'Nome', field: 'title', align: 'left' },
+          {
+            name: 'totalWeek',
+            label: 'Total Semana',
+            field: 'totalWeek',
+            align: 'center',
+          },
+          {
+            name: 'totalSaturday',
+            label: 'Total Sábado',
+            field: 'totalSaturday',
+            align: 'center',
+          },
+          {
+            name: 'totalSunday',
+            label: 'Total Domingo',
+            field: 'totalSunday',
+            align: 'center',
+          },
+          {
+            name: 'totalGeneral',
+            label: 'Total Geral',
+            field: 'totalGeneral',
+            align: 'center',
+          },
+        ]"
+        row-key="title"
+      />
+    </q-card-section>
   </q-card>
+
+  <q-dialog v-model="isModalOpen">
+    <q-card>
+      <q-card-section class="bg-primary">
+        <div class="text-h6 text-white">Lançar Evento</div>
+        <div class="text-h8 text-white">
+          Para lançar o evento/plantão informe o nome do funcionário e os
+          detalhes
+        </div>
+      </q-card-section>
+
+      <q-separator />
+
+      <q-card-section>
+        <q-form class="row q-col-gutter-xs q-pa-xs" ref="formFieldsRefModal">
+          <q-input
+            class="col-12 col-sm-6 col-md-12"
+            v-model="newEvent.title"
+            label="Nome Funcionário"
+            outlined
+            dense
+            color="primary"
+          />
+          <q-input
+            class="col-12 col-sm-6 col-md-12"
+            v-model="newEvent.details"
+            label="Detalhes do plantão"
+            outlined
+            dense
+            color="primary"
+          />
+          <q-input
+            class="col-12 col-sm-6 col-md-12"
+            v-model.number="newEvent.days"
+            label="Dias"
+            outlined
+            dense
+            color="primary"
+          />
+          <q-select
+            v-model="newEvent.bgColor"
+            label="Cor da legenda"
+            color="primary"
+            outlined
+            emit-value
+            map-options
+            dense
+            class="col-12 col-sm-6 col-md-12"
+            :options="[
+              { label: 'Azul', value: 'blue' },
+              { label: 'Ciano', value: 'cyan' },
+              { label: 'Verde', value: 'green' },
+              { label: 'Lima', value: 'lime' },
+              { label: 'Laranja', value: 'orange' },
+              { label: 'Âmbar', value: 'amber' },
+              { label: 'Vermelho', value: 'red' },
+              { label: 'Roxo', value: 'purple' },
+              { label: 'Rosa', value: 'pink' },
+              { label: 'Marrom', value: 'brown' },
+              { label: 'Cinza', value: 'grey' },
+              { label: 'Preto', value: 'black' },
+              { label: 'Teal', value: 'teal' },
+              { label: 'Indigo', value: 'indigo' },
+              { label: 'Deep Orange', value: 'deep-orange' },
+            ]"
+          >
+            <template v-slot:option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section avatar>
+                  <q-icon name="circle" :style="{ color: scope.opt.value }" />
+                </q-item-section>
+                <q-item-section>
+                  {{ scope.opt.label }}
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+        </q-form>
+      </q-card-section>
+      <q-card-actions>
+        <q-btn
+          outline
+          icon="far fa-window-close"
+          color="negative"
+          label="Cancelar"
+          @click="handleCloseModal"
+        />
+        <q-btn
+          outline
+          icon="fas fa-plus-square"
+          color="primary"
+          label="Salvar"
+          @click="addEvent"
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup lang="ts">
@@ -96,16 +213,44 @@ interface Holiday {
 }
 
 interface Event {
-  id: number;
+  id: string;
   title: string;
   details: string;
   date: string;
-  time?: string;
+  hours: number;
   duration?: number;
   bgColor?: string;
   icon?: string;
   days?: number;
 }
+
+interface GroupedEvent {
+  title: string;
+  totalWeek: number;
+  totalSaturday: number;
+  totalSunday: number;
+  totalGeneral: number;
+}
+
+const WEEKDAY: { [key: number]: string } = {
+  0: "DOMINGO",
+  1: "SEGUNDA",
+  2: "TERCA",
+  3: "QUARTA",
+  4: "QUINTA",
+  5: "SEXTA",
+  6: "SABADO",
+};
+
+const HOURS_VALUE: { [key: string]: number } = {
+  DOMINGO: 14,
+  SABADO: 12,
+  SEGUNDA: 8,
+  TERCA: 8,
+  QUARTA: 8,
+  QUINTA: 8,
+  SEXTA: 8,
+} as const;
 
 import {
   QCalendarMonth,
@@ -120,13 +265,36 @@ import "@quasar/quasar-ui-qcalendar/index.css";
 import { ref, reactive, computed } from "vue";
 import Holidays from "date-holidays";
 import { DateTime } from "luxon";
+import { useQuasar, uid } from "quasar";
 
 const calendar = ref<QCalendarMonth>();
-const selectedDate = ref(DateTime.now().toISODate()!); // ISO Date format YYYY-MM-DD
+const selectedDate = ref(DateTime.now().toISODate()); // ISO Date format YYYY-MM-DD
 const selectedMonth = reactive<Timestamp[]>([]);
 const country = ref("BR"); // start with Brazil
-const countryCodes: Record<string, string> = { BR: "pt-BR" }; // 'Brasil', Portuguese (Brazil)
-const locale = computed(() => countryCodes[country.value]);
+const $q = useQuasar();
+const locale = computed(() => $q.lang.isoName);
+const isModalOpen = ref(false);
+const events = reactive<Event[]>([]);
+const groupedEventsList = ref<GroupedEvent[]>([]);
+const newEvent = reactive<Event>({
+  title: "",
+  details: "",
+  date: "",
+  hours: 0,
+  id: "",
+  days: 1,
+});
+
+// Função para obter os eventos normais
+const getEvents = (): Event[] => events;
+
+const onToday = () => calendar.value?.moveToToday();
+const onPrev = () => calendar.value?.prev();
+const onNext = () => calendar.value?.next();
+
+const handleClickEvent = (event: Event & { weekday: number }) => {
+  console.log("Event clicked:", event);
+};
 
 const formattedMonth = computed(() => {
   if (!locale.value) return "";
@@ -141,7 +309,7 @@ const holidaysMap = computed<Holiday[]>(() => {
   // get previous, current and next year so in dec/jan
   // you can see holidays from different years
   const holidays = new Holidays(country.value);
-  const currentYear = DateTime.now().setLocale(locale.value || "pt-BR").year;
+  const currentYear = DateTime.now().setLocale(locale.value).year;
 
   return [
     ...holidays.getHolidays(currentYear - 1),
@@ -163,133 +331,72 @@ const getColor = (item: { type: string }) => {
   }
 };
 
-const parseDate = (dateStr: string): string => {
-  return DateTime.fromFormat(dateStr, "dd/MM/yyyy").toFormat("yyyy-MM-dd");
+const addEvent = () => {
+  events.push({
+    ...newEvent,
+    id: uid(),
+    bgColor: newEvent.bgColor || "blue",
+  });
+
+  isModalOpen.value = false;
+
+  Object.assign(newEvent, {
+    title: "",
+    details: "",
+    date: "",
+    hours: 0,
+    id: "",
+    bgColor: "",
+    days: 1,
+  });
+
+  updateGroupedEvents();
 };
 
-const WEEKDAY: { [key: number]: string } = {
-  0: "DOMINGO",
-  1: "SEGUNDA",
-  2: "TERCA",
-  3: "QUARTA",
-  4: "QUINTA",
-  5: "SEXTA",
-  6: "SABADO",
+const updateGroupedEvents = () => {
+  groupedEventsList.value = Object.values(
+    events.reduce<Record<string, GroupedEvent>>(
+      (acc, { title, date, hours, days }) => {
+        const weekday = DateTime.fromISO(date).weekday; // 1 = segunda, 7 = domingo
+        const entry = (acc[title] ??= {
+          title,
+          totalWeek: 0,
+          totalSaturday: 0,
+          totalSunday: 0,
+          totalGeneral: 0,
+        });
+
+        const totalEventsHours = hours * (days || 1);
+
+        if (weekday >= 1 && weekday <= 5) {
+          entry.totalWeek += totalEventsHours;
+        } else if (weekday === 6) {
+          entry.totalSaturday += totalEventsHours;
+        } else {
+          entry.totalSunday += totalEventsHours;
+        }
+
+        entry.totalGeneral =
+          entry.totalWeek + entry.totalSaturday + entry.totalSunday;
+
+        return acc;
+      },
+      {}
+    )
+  );
 };
 
-const HOURS_VALUE: { [key: string]: number } = {
-  DOMINGO: 14,
-  SABADO: 12,
-  SEGUNDA: 8,
-  TERCA: 8,
-  QUARTA: 8,
-  QUINTA: 8,
-  SEXTA: 8,
+const onClickDate = ({ scope }: { scope: { timestamp: Timestamp } }) => {
+  const { timestamp } = scope;
+
+  const weekdayName = WEEKDAY[timestamp.weekday] as string;
+  const hours = HOURS_VALUE[weekdayName] as number;
+
+  newEvent.hours = hours;
+  newEvent.date = timestamp.date;
+
+  isModalOpen.value = true;
 };
-
-const addEvent = (timestamp: Timestamp) => {
-  const weekdayName = WEEKDAY[timestamp.weekday] as string; // Obtém o nome do dia da semana
-  const hours = HOURS_VALUE[weekdayName]; // Obtém as horas com base no dia da semana
-
-  console.log({ date: timestamp.date, hours });
-};
-
-const events = reactive<Event[]>([
-  {
-    id: 1,
-    title: "Rafael Almeida 1",
-    details: "Esta de plantão na rota XYZ",
-    date: parseDate("03/03/2025"),
-    bgColor: "orange",
-    icon: "bookmark",
-  },
-  {
-    id: 2,
-    title: "Rafael Almeida 2",
-    details: "Esta de plantão na rota XYZ",
-    date: parseDate("04/03/2025"),
-    bgColor: "orange",
-    icon: "star",
-  },
-  {
-    id: 3,
-    title: "Rafael Almeida",
-    details: "Esta de plantão na rota XYZ",
-    date: parseDate("10/03/2025"),
-    time: "10:00",
-    duration: 120,
-    bgColor: "orange",
-    icon: "alarm",
-  },
-  {
-    id: 4,
-    title: "Lunch",
-    details: "Company is paying!",
-    date: parseDate("10/03/2025"),
-    time: "11:30",
-    duration: 90,
-    bgColor: "teal",
-    icon: "directions",
-  },
-  {
-    id: 5,
-    title: "Visit mom",
-    details: "Always a nice chat with mom",
-    date: parseDate("20/03/2025"),
-    time: "17:00",
-    duration: 90,
-    bgColor: "grey",
-    icon: "directions",
-  },
-  {
-    id: 6,
-    title: "Conference",
-    details: "Teaching Javascript 101",
-    date: parseDate("22/03/2025"),
-    time: "08:00",
-    duration: 540,
-    bgColor: "blue",
-    icon: "directions",
-  },
-  {
-    id: 7,
-    title: "Girlfriend",
-    details: "Meet GF for dinner at Swanky Restaurant",
-    date: parseDate("04/03/2025"),
-    time: "19:00",
-    duration: 180,
-    bgColor: "teal",
-    icon: "directions",
-  },
-  {
-    id: 8,
-    title: "Rowing",
-    details: "Stay in shape!",
-    date: parseDate("04/03/2025"),
-    bgColor: "purple",
-    icon: "directions",
-    days: 2,
-  },
-  {
-    id: 9,
-    title: "Fishing",
-    details: "Time for some weekend R&R",
-    date: parseDate("04/03/2025"),
-    bgColor: "purple",
-    icon: "directions",
-    days: 200,
-  },
-  {
-    id: 10,
-    title: "Vacation - Rafael",
-    details:
-      "Trails and hikes, going camping! Don't forget to bring bear spray!",
-    date: parseDate("02/03/2025"),
-    bgColor: "purple",
-    icon: "directions",
-    days: 5,
-  },
-]);
 
 // Função para obter feriados formatados como eventos
 const getHolidays = (): Event[] => {
@@ -297,6 +404,7 @@ const getHolidays = (): Event[] => {
 
   const start = selectedMonth[0];
   const end = selectedMonth[selectedMonth.length - 1];
+  const hoursDefault = HOURS_VALUE["DOMINGO"] as number;
 
   return holidaysMap.value
     .filter((item) => {
@@ -305,17 +413,15 @@ const getHolidays = (): Event[] => {
       return isBetweenDates(timestamp!, start!, end!);
     })
     .map((item, index) => ({
-      id: index,
+      id: index.toString(),
       title: item.name,
       details: item.type,
       date: PARSE_DATE.exec(item.date)![0],
       bgColor: getColor(item),
       days: 1,
+      hours: hoursDefault,
     }));
 };
-
-// Função para obter os eventos normais
-const getEvents = (): Event[] => events;
 
 const eventsMap = computed<Record<string, Event[]>>(() => {
   const map: Record<string, Event[]> = {};
@@ -342,24 +448,26 @@ const eventsMap = computed<Record<string, Event[]>>(() => {
   return map;
 });
 
-const onToday = () => calendar.value?.moveToToday();
-const onPrev = () => calendar.value?.prev();
-const onNext = () => calendar.value?.next();
-const onMoved = (data: Timestamp) => console.log("onMoved", data);
-const onClickDate = (data: Timestamp) => console.log("onClickDate", data);
-const onClickDay = (data: Timestamp) => console.log("onClickDay", data);
-const onClickHeadDay = (data: Timestamp) => console.log("ClickHeadDay", data);
-const onClickWorkweek = (data: Timestamp) => console.log("onWorkweek", data);
-const onClickHeadWorkweek = (data: Timestamp) => console.log("onHeadWorkweek");
-
 const onChange = (data: {
   start: Timestamp;
   end: Timestamp;
   days: Timestamp[];
 }) => {
-  console.info("onChange", data);
   // get year of 1st of the month
   selectedMonth.splice(0, selectedMonth.length, ...data.days);
+};
+
+const handleCloseModal = () => {
+  isModalOpen.value = false;
+
+  Object.assign(newEvent, {
+    title: "",
+    details: "",
+    date: "",
+    hours: 0,
+    id: "",
+    bgColor: "",
+  });
 };
 </script>
 
@@ -370,10 +478,5 @@ const onChange = (data: {
   width: 100%;
   max-width: 100%;
   margin: 3px 0 0 0;
-  cursor: pointer;
-}
-
-.my-custom-toggle {
-  border: 1px solid #027be3;
 }
 </style>
