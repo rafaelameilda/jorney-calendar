@@ -42,7 +42,7 @@
         :day-min-height="60"
         :locale="locale"
         @change="onChange"
-        @click-date="onClickDate"
+        @click-date="handleOpenModal"
       >
         <template #day="{ scope: { timestamp } }">
           <template v-for="event in eventsMap[timestamp.date]" :key="event.id">
@@ -54,7 +54,7 @@
               clickable
               class="my-event"
               :color="event.bgColor"
-              :icon="event?.icon || 'event'"
+              :icon="event?.icon || 'fa-solid fa-calendar-xmark'"
             >
               <div class="q-calendar__ellipsis">
                 {{ event.title }}
@@ -202,56 +202,6 @@
 </template>
 
 <script setup lang="ts">
-interface Holiday {
-  date: string;
-  start: Date;
-  end: Date;
-  name: string;
-  type: string;
-  rule: string;
-  substitute?: boolean;
-}
-
-interface Event {
-  id: string;
-  title: string;
-  details: string;
-  date: string;
-  hours: number;
-  duration?: number;
-  bgColor?: string;
-  icon?: string;
-  days?: number;
-}
-
-interface GroupedEvent {
-  title: string;
-  totalWeek: number;
-  totalSaturday: number;
-  totalSunday: number;
-  totalGeneral: number;
-}
-
-const WEEKDAY: { [key: number]: string } = {
-  0: "DOMINGO",
-  1: "SEGUNDA",
-  2: "TERCA",
-  3: "QUARTA",
-  4: "QUINTA",
-  5: "SEXTA",
-  6: "SABADO",
-};
-
-const HOURS_VALUE: { [key: string]: number } = {
-  DOMINGO: 14,
-  SABADO: 12,
-  SEGUNDA: 8,
-  TERCA: 8,
-  QUARTA: 8,
-  QUINTA: 8,
-  SEXTA: 8,
-} as const;
-
 import {
   QCalendarMonth,
   /// @ts-expect-error ignore for now
@@ -266,6 +216,16 @@ import { ref, reactive, computed } from "vue";
 import Holidays from "date-holidays";
 import { DateTime } from "luxon";
 import { useQuasar, uid } from "quasar";
+import {
+  GroupedEvent,
+  Event,
+  HOURS_VALUE,
+  Holiday,
+  WEEKDAY,
+  HOLYDAY_TYPE_MAP,
+  HOLYDAY_HOURS_VALUE_MAP,
+  WEEK_DAY_ENUM,
+} from "./models";
 
 const calendar = ref<QCalendarMonth>();
 const selectedDate = ref(DateTime.now().toISODate()); // ISO Date format YYYY-MM-DD
@@ -285,9 +245,7 @@ const newEvent = reactive<Event>({
   days: 1,
 });
 
-// Função para obter os eventos normais
 const getEvents = (): Event[] => events;
-
 const onToday = () => calendar.value?.moveToToday();
 const onPrev = () => calendar.value?.prev();
 const onNext = () => calendar.value?.next();
@@ -318,18 +276,86 @@ const holidaysMap = computed<Holiday[]>(() => {
   ];
 });
 
-const getColor = (item: { type: string }) => {
+const getHolydayColor = (item: { type: string }) => {
   switch (item.type) {
     case "public":
-      return "blue";
+      return "red";
     case "observance":
       return "green";
     case "optional":
-      return "red";
+      return "blue";
     default: // bank|school
       return "orange";
   }
 };
+
+// Função auxiliar para calcular as horas do feriado
+const getHolidayHours = (date: string, type: string): number => {
+  const weekday = DateTime.fromFormat(date, "yyyy-MM-dd HH:mm:ss").weekday; // 1 = Segunda-feira, 7 = Domingo
+
+  if (weekday === 6) {
+    // Se for sábado
+    return HOURS_VALUE[WEEK_DAY_ENUM.SABADO]!;
+  }
+
+  if (weekday === 7) {
+    // Se for domingo
+    return HOURS_VALUE[WEEK_DAY_ENUM.DOMINGO]!;
+  }
+
+  // Para dias de semana, retorna o valor com base no tipo de feriado
+  return HOLYDAY_HOURS_VALUE_MAP[type] || 0;
+};
+
+// Função para obter feriados formatados como eventos
+const getHolidays = (): Event[] => {
+  if (selectedMonth.length === 0) return [];
+
+  const start = selectedMonth[0];
+  const end = selectedMonth[selectedMonth.length - 1];
+
+  return holidaysMap.value
+    .filter((item) => {
+      const timestamp = parseTimestamp(PARSE_DATE.exec(item.date)![0]);
+
+      return isBetweenDates(timestamp!, start!, end!);
+    })
+    .map((item, index) => ({
+      id: index.toString(),
+      title: item.name,
+      details: HOLYDAY_TYPE_MAP[item.type] || item.type,
+      date: PARSE_DATE.exec(item.date)![0],
+      bgColor: getHolydayColor(item),
+      days: 1,
+      hours: getHolidayHours(item.date, item.type),
+    }));
+};
+
+// Função para mapear os eventos e feriados
+const eventsMap = computed<Record<string, Event[]>>(() => {
+  const map: Record<string, Event[]> = {};
+
+  const allEvents = [...getEvents(), ...getHolidays()];
+
+  allEvents.forEach((event) => {
+    (map[event.date] = map[event.date] || []).push(event);
+
+    if (event.days !== undefined) {
+      let timestamp = parseTimestamp(event.date);
+      let days = event.days;
+
+      while (--days > 0) {
+        timestamp = addToDate(timestamp!, { day: 1 });
+        if (!map[timestamp.date]) {
+          map[timestamp.date] = [];
+        }
+        map[timestamp.date]!.push(event);
+      }
+    }
+  });
+
+  return map;
+});
 
 const addEvent = () => {
   events.push({
@@ -353,6 +379,7 @@ const addEvent = () => {
   updateGroupedEvents();
 };
 
+// Função para obter os eventos agrupados e calculados
 const updateGroupedEvents = () => {
   groupedEventsList.value = Object.values(
     events.reduce<Record<string, GroupedEvent>>(
@@ -386,7 +413,7 @@ const updateGroupedEvents = () => {
   );
 };
 
-const onClickDate = ({ scope }: { scope: { timestamp: Timestamp } }) => {
+const handleOpenModal = ({ scope }: { scope: { timestamp: Timestamp } }) => {
   const { timestamp } = scope;
 
   const weekdayName = WEEKDAY[timestamp.weekday] as string;
@@ -397,56 +424,6 @@ const onClickDate = ({ scope }: { scope: { timestamp: Timestamp } }) => {
 
   isModalOpen.value = true;
 };
-
-// Função para obter feriados formatados como eventos
-const getHolidays = (): Event[] => {
-  if (selectedMonth.length === 0) return [];
-
-  const start = selectedMonth[0];
-  const end = selectedMonth[selectedMonth.length - 1];
-  const hoursDefault = HOURS_VALUE["DOMINGO"] as number;
-
-  return holidaysMap.value
-    .filter((item) => {
-      const timestamp = parseTimestamp(PARSE_DATE.exec(item.date)![0]);
-
-      return isBetweenDates(timestamp!, start!, end!);
-    })
-    .map((item, index) => ({
-      id: index.toString(),
-      title: item.name,
-      details: item.type,
-      date: PARSE_DATE.exec(item.date)![0],
-      bgColor: getColor(item),
-      days: 1,
-      hours: hoursDefault,
-    }));
-};
-
-const eventsMap = computed<Record<string, Event[]>>(() => {
-  const map: Record<string, Event[]> = {};
-
-  const allEvents = [...getEvents(), ...getHolidays()];
-
-  allEvents.forEach((event) => {
-    (map[event.date] = map[event.date] || []).push(event);
-
-    if (event.days !== undefined) {
-      let timestamp = parseTimestamp(event.date);
-      let days = event.days;
-
-      while (--days > 0) {
-        timestamp = addToDate(timestamp!, { day: 1 });
-        if (!map[timestamp.date]) {
-          map[timestamp.date] = [];
-        }
-        map[timestamp.date]!.push(event);
-      }
-    }
-  });
-
-  return map;
-});
 
 const onChange = (data: {
   start: Timestamp;
